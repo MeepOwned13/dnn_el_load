@@ -126,41 +126,40 @@ class BahdanauAttention(nn.Module):
 
 
 class AttentionGRUDecoder(nn.Module):
-    def __init__(self, embedded_size, num_layers=1, bidirectional=False, dropout=0.0, noise=0.0):
+    def __init__(self, embedded_size, bidirectional=False, dropout=0.0, noise=0.0):
         super(AttentionGRUDecoder, self).__init__()
         self.h_n_dim = 2 if bidirectional else 1
-        self.gru = nn.GRU(embedded_size * self.h_n_dim, embedded_size, num_layers,
-                          dropout=dropout, bidirectional=bidirectional, batch_first=True)
+        self.gru = nn.GRU(embedded_size * self.h_n_dim, embedded_size, 1,
+                          bidirectional=bidirectional, batch_first=True)
         self.attention = BahdanauAttention(embedded_size * self.h_n_dim)
         self.fc = nn.Sequential(
             nn.Flatten(1, -1),
             GaussianNoise(noise),
             nn.Dropout(dropout),
-            nn.Linear(embedded_size * num_layers * self.h_n_dim, 1),
+            nn.Linear(embedded_size * self.h_n_dim, 1),
         )
 
     def forward(self, y_prev, hidden, enc_out):
         query = hidden.permute(1, 0, 2).reshape(-1, 1, self.h_n_dim * self.gru.hidden_size)
         attn_out, attn_weights = self.attention(query, enc_out, enc_out)
 
-        out, hidden = self.gru(attn_out, hidden)
-        out = self.fc(out + y_prev)
+        out, hidden = self.gru(attn_out + y_prev, hidden)
+        out = self.fc(out)
 
         return out, hidden
 
 
 class AttentionSeq2seq(nn.Module):
-    def __init__(self, features=11, pred_len=3, embedding_size=10, num_layers=1, bidirectional=False,
+    def __init__(self, features=11, pred_len=3, embedding_size=10, bidirectional=False,
                  dropout=0.2, in_noise=0.0, out_noise=0.0, **kwargs):
         super(AttentionSeq2seq, self).__init__()
         self.pred_len = pred_len
         self.features = features
         self.embedding_size = embedding_size
-        self.num_layers = num_layers
-        self.enc = GRUEncoder(features, embedding_size, num_layers, bidirectional=bidirectional,
-                              dropout=dropout if num_layers > 1 else 0.0, noise=in_noise)
-        self.adec = AttentionGRUDecoder(embedding_size, num_layers, bidirectional=bidirectional,
-                                        dropout=dropout if num_layers > 1 else 0.0, noise=out_noise)
+        self.enc = GRUEncoder(features, embedding_size, 1, bidirectional=bidirectional,
+                              dropout=0.0, noise=in_noise)
+        self.adec = AttentionGRUDecoder(embedding_size, bidirectional=bidirectional,
+                                        dropout=dropout, noise=out_noise)
 
     def forward(self, x, y=None, teacher_forcing=0.0):
         batch_size = x.shape[0]
@@ -179,5 +178,14 @@ class AttentionSeq2seq(nn.Module):
                 dec_input = out.unsqueeze(1)
 
         return output
+
+
+# endregion
+
+
+# region Positional encoding
+
+
+"""https://medium.com/@hunter-j-phillips/positional-encoding-7a93db4109e6"""
 
 # endregion
