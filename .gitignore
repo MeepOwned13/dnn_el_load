@@ -173,4 +173,4 @@ cython_debug/
 ### Project specific settings
 *.pdf
 *.csv
-!country_data.csv
+!data/country_data.csv
