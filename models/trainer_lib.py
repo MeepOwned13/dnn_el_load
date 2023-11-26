@@ -24,7 +24,7 @@ def mpe(p, t):
     return np.mean((p - t) / t)
 
 
-def load_country_wide_dataset(file: str, nodrop=False):
+def load_country_wide_dataset(file: str, nodrop=False, until=None):
     """
     Loads country_wide dataset from file
     :param file: path to file
@@ -50,6 +50,9 @@ def load_country_wide_dataset(file: str, nodrop=False):
     )
 
     df['el_load_lag24'] = df['el_load'].shift(24, fill_value=0)
+
+    if until is not None:
+        df = df[:until]
 
     if nodrop:
         return df
@@ -434,9 +437,10 @@ class TSMWrapper(ABC):
     # region public methods
 
     def validate_ts_strategy(self, x: np.ndarray, y: np.ndarray, epochs: int, loss_fn=nn.MSELoss(), val_mod=8,
-                             lr=0.001, batch_size=128, es_p=10, es_d=0., n_splits=6, verbose=2, cp=True, **kwargs):
+                             lr=0.001, batch_size=128, es_p=10, es_d=0., n_splits=2, verbose=2, cp=True, **kwargs):
         """
-        Validates internal time-series model by testing it for given amount of folds, with given parameters
+        Validates internal time-series model by testing it for given amount of folds, with given parameters.
+        Ignores 1st fold, since I'm training seq2seq models and they perform terribly on the first fold.
         :param x: X to use for training, validation and testing, should be all the data we have
         :param y: y to use for training, validation and testing, should be all the labels we have
         :param epochs: epochs to train for
@@ -461,6 +465,7 @@ class TSMWrapper(ABC):
 
         st_time = None
         for i, (train_idxs, test_idxs) in enumerate(ts_cv.split(x)):
+            if i == 0: continue
             if verbose > 0:
                 st_time = timer()
                 print(f"[Fold {i+1}] BEGIN", end="\n" if verbose > 1 else " ")
@@ -514,7 +519,6 @@ class TSMWrapper(ABC):
             _, _, _, metric_losses = self.validate_ts_strategy(x, y, loss_fn=loss_fn, verbose=verbose-2, **params)
 
             score = sum(metric_losses) / len(metric_losses)
-            score_no_1st = sum(metric_losses[1:]) / (len(metric_losses) - 1)
 
             improved = score < best_score
             best_params = params if improved else best_params
@@ -522,7 +526,7 @@ class TSMWrapper(ABC):
 
             if verbose > 0:
                 print(f"[Grid search {i+1:03d}]" if verbose > 1 else f"-",
-                      f"END - Score: {score:.8f} {'* ' if improved else ''}Without 1st split: {score_no_1st}")
+                      f"END - Score: {score:.8f} {'* ' if improved else ''}")
 
         return best_params, best_score
 

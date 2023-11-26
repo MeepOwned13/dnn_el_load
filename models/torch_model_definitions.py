@@ -109,10 +109,10 @@ class Seq2seq(nn.Module):
 # region Attention encoder-decoder
 
 
-class BahdanauAttention(nn.Module):
-    """https://github.com/sooftware/attentions/blob/master/attentions.py"""
+class Attention(nn.Module):
+    """from: https://github.com/sooftware/attentions/blob/master/attentions.py"""
     def __init__(self, hidden_dim: int) -> None:
-        super(BahdanauAttention, self).__init__()
+        super(Attention, self).__init__()
         self.query_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.key_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.bias = nn.Parameter(torch.rand(hidden_dim).uniform_(0.1))
@@ -131,7 +131,7 @@ class AttentionGRUDecoder(nn.Module):
         self.h_n_dim = 2 if bidirectional else 1
         self.gru = nn.GRU(embedded_size * self.h_n_dim, embedded_size, 1,
                           bidirectional=bidirectional, batch_first=True)
-        self.attention = BahdanauAttention(embedded_size * self.h_n_dim)
+        self.attention = Attention(embedded_size * self.h_n_dim)
         self.fc = nn.Sequential(
             nn.Flatten(1, -1),
             GaussianNoise(noise),
@@ -143,8 +143,8 @@ class AttentionGRUDecoder(nn.Module):
         query = hidden.permute(1, 0, 2).reshape(-1, 1, self.h_n_dim * self.gru.hidden_size)
         attn_out, attn_weights = self.attention(query, enc_out, enc_out)
 
-        out, hidden = self.gru(attn_out + y_prev, hidden)
-        out = self.fc(out)
+        out, hidden = self.gru(attn_out, hidden)
+        out = self.fc(out + y_prev)
 
         return out, hidden
 
