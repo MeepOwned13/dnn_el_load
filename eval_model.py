@@ -99,8 +99,8 @@ def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
 
     res_df = pd.DataFrame(columns=['MAE', 'MSE', 'RMSE', 'MAPE', 'MPE', 'Train Time', 'Pred Time'])
 
-    for i in range(args.repeat):
-        print(f'Iteration {i + 1}/{args.repeat}')
+    for i in range(repeat):
+        print(f'Iteration {i + 1}/{repeat}')
         st_time = timer()
 
         # train
