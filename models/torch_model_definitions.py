@@ -222,7 +222,7 @@ class PosAttSeq2seq(nn.Module):
         self.features = features
         self.embedding_size = embedding_size
         self.pe = PositionalEncodingS2S(1, max_seq)
-        self.enc = GRUEncoder(features, embedding_size - 1, 1, bidirectional=bidirectional,
+        self.enc = GRUEncoder(features + 1, embedding_size, 1, bidirectional=bidirectional,
                               dropout=0.0, noise=in_noise)
         self.adec = AttentionGRUDecoder(2, embedding_size, bidirectional=bidirectional,
                                         dropout=dropout, noise=out_noise)
