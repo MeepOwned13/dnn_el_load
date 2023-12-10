@@ -40,7 +40,7 @@ def load_data(until):
 
 
 def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
-               write_file: str = None, model_file: str = None) -> pd.DataFrame:
+               write_file: str = None, model_file: str = None, custom_emb_size: int = None) -> pd.DataFrame:
     """
     Evaluates the model with the given params_key
     :param params_key: the params_key to use from params.py
@@ -49,6 +49,7 @@ def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
     :param repeat: the number of times to repeat the evaluation
     :param write_file: what file to write the results to, append if exists
     :param model_file: what file to save the best model to, can't be used unless write_file is also used
+    :param custom_emb_size: set embedding size to a custom value
     :return: evaluation results as Pandas DataFrame
     """
     if model_file and not write_file:
@@ -70,7 +71,7 @@ def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
         else:
             full_df = pd.read_csv(write_file)
 
-    params = PARAMS[params_key]
+    params = PARAMS[params_key].copy()
     n_splits = 2
     epochs = params['epochs']
     lr = params['lr']
@@ -80,6 +81,8 @@ def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
     params['seq_len'] = seq_len
     params['pred_len'] = pred_len
     params['model_params']['pred_len'] = pred_len
+    if custom_emb_size:
+        params['model_params']['embedding_size'] = custom_emb_size
 
     wrapper = tl.S2STSWrapper(
         model=params['model'](**params['model_params']),
