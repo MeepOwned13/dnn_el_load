@@ -25,7 +25,7 @@ PARAMS = {
     },
     'att_s2s': {
         'epochs': 2000,
-        'lr': 0.001,
+        'lr': 0.0015,
         'batch_size': 2048,
         'es_p': 20,
         'model': tmd.AttentionSeq2seq,
