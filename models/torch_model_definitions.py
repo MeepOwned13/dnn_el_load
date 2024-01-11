@@ -192,9 +192,10 @@ class AttentionSeq2seq(nn.Module):
 # region Positional encoding
 
 
-class PositionalEncodingS2S(nn.Module):
+class ConcPositionalEncodingS2S(nn.Module):
+    """Positional encoding via concatenation"""
     def __init__(self, d_model, max_seq):
-        super(PositionalEncodingS2S, self).__init__()
+        super(ConcPositionalEncodingS2S, self).__init__()
 
         pe = torch.zeros(max_seq, d_model)
         position = torch.arange(0, max_seq, 1).unsqueeze(1).float()
@@ -221,7 +222,7 @@ class PosAttSeq2seq(nn.Module):
         self.pred_len = pred_len
         self.features = features
         self.embedding_size = embedding_size
-        self.pe = PositionalEncodingS2S(1, max_seq)
+        self.pe = ConcPositionalEncodingS2S(1, max_seq)
         self.enc = GRUEncoder(features + 1, embedding_size, 1, bidirectional=bidirectional,
                               dropout=0.0, noise=in_noise)
         self.adec = AttentionGRUDecoder(2, embedding_size, bidirectional=bidirectional,
@@ -247,7 +248,67 @@ class PosAttSeq2seq(nn.Module):
         return output
 
 
-# print(PositionalEncodingS2S(1, 72).code_index((torch.zeros(2, 1, 1).to(MODEL_DEFINITION_DEVICE)), 2))
+class AddPositionalEncodingS2S(nn.Module):
+    """Positional encoding via addition"""
+    def __init__(self, d_model, max_seq):
+        super(AddPositionalEncodingS2S, self).__init__()
+
+        pe = torch.zeros(max_seq, d_model)
+        position = torch.arange(0, max_seq, 1).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, d_model, 2).float()) * -(math_log(10_000.0) / d_model)
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        self.pe = pe.unsqueeze(0).to(MODEL_DEFINITION_DEVICE)
+
+    def forward(self, x):
+        expanded = self.pe[:, :x.shape[1]].expand((x.shape[0], -1, -1))
+        return x + expanded
+
+    def code_index(self, x, i):
+        expanded = self.pe[:, i].expand((x.shape[0], -1, -1))
+        return x + expanded
+
+
+class AddPosAttSeq2seq(nn.Module):
+    def __init__(self, features=11, pred_len=3, embedding_size=10, bidirectional=False,
+                 dropout=0.2, in_noise=0.0, out_noise=0.0, max_seq=72, **kwargs):
+        super(AddPosAttSeq2seq, self).__init__()
+        self.pred_len = pred_len
+        self.features = features
+        self.embedding_size = embedding_size
+        self.pe = AddPositionalEncodingS2S(1, max_seq)
+        self.enc = GRUEncoder(features, embedding_size, 1, bidirectional=bidirectional,
+                              dropout=0.0, noise=in_noise)
+        self.adec = AttentionGRUDecoder(1, embedding_size, bidirectional=bidirectional,
+                                        dropout=dropout, noise=out_noise)
+
+    def forward(self, x, y=None, teacher_forcing=0.0):
+        batch_size = x.shape[0]
+        enc_out, hidden = self.enc(x)
+        enc_out = self.pe(enc_out)
+        dec_input = x[:, -1, 0].reshape(-1, 1, 1)  # this will be y_prev in my case
+        output = torch.zeros(batch_size, self.pred_len).to(MODEL_DEFINITION_DEVICE)
+
+        for i in range(self.pred_len):
+            hidden = self.pe.code_index(hidden, i)
+            out, hidden = self.adec(dec_input, hidden, enc_out)
+
+            output[:, i] = out[:, 0]
+
+            if y is not None and torch.rand(1) < teacher_forcing:
+                dec_input = y[:, i].reshape(-1, 1, 1)
+            else:
+                dec_input = out.unsqueeze(1)
+
+        return output
+
+
+# print(ConcPositionalEncodingS2S(1, 72).code_index((torch.zeros(2, 1, 1).to(MODEL_DEFINITION_DEVICE)), 2))
 # print(PosAttSeq2seq(bidirectional=True).to(MODEL_DEFINITION_DEVICE)(torch.zeros(1, 3, 11).to(MODEL_DEFINITION_DEVICE)))
+
+# print(AddPositionalEncodingS2S(1, 72)(torch.zeros(2, 3, 20).to(MODEL_DEFINITION_DEVICE)))
+# print(AddPosAttSeq2seq(bidirectional=True).to(MODEL_DEFINITION_DEVICE)(torch.zeros(1, 3, 11).to(MODEL_DEFINITION_DEVICE)))
 # endregion
 
