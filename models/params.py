@@ -59,4 +59,22 @@ PARAMS = {
         'pred_len': None,
         'teacher_forcing_decay': 0.01,
     },
+    'add_pos_att_s2s': {
+        'epochs': 2000,
+        'lr': 0.001,
+        'batch_size': 2048,
+        'es_p': 20,
+        'model': tmd.AddPosAttSeq2seq,
+        'model_params': {
+            'features': 11,
+            'pred_len': None,
+            'embedding_size': 12,
+            'bidirectional': True,
+            'dropout': 0.0,
+            'noise': 0.00
+        },
+        'seq_len': None,
+        'pred_len': None,
+        'teacher_forcing_decay': 0.01,
+    },
 }
