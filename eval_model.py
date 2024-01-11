@@ -175,6 +175,7 @@ if __name__ == '__main__':
                         help="Don't write results to file")
     parser.add_argument('-sm', '--save_model', action='store_true',
                         default=False, help="Save best model for each fold")
+    parser.add_argument('-ce', '--custom_emb_size', type=int, default=None)
     args = parser.parse_args()
 
     if args.skip_write and args.save_model:
@@ -192,4 +193,5 @@ if __name__ == '__main__':
             os.makedirs('final_eval_results')
         model_file = f'final_eval_results/{args.seq_len}_{args.pred_len}_{args.params}.pt'
 
-    print(eval_model(args.params, args.seq_len, args.pred_len, args.repeat, write_file, model_file))
+    print(eval_model(args.params, args.seq_len, args.pred_len, args.repeat, write_file,
+                     model_file, args.custom_emb_size))
