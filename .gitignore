@@ -174,3 +174,4 @@ cython_debug/
 *.pdf
 *.csv
 !data/country_data.csv
+!final_eval_results/results.csv
