@@ -484,7 +484,7 @@ class TSMWrapper(ABC):
                                                                   loss_fn=loss_fn, es_p=es_p, es_d=es_d,
                                                                   verbose=verbose-1, cp=cp)
 
-            pred, true = self.predict(x_test, y_test)
+            pred, true = self.predict_for_comparison(x_test, y_test)
             metric_loss = math_sqrt(nn.MSELoss()(torch.tensor(pred), torch.tensor(true)).item())
 
             train_losses.append(train_loss)
@@ -531,7 +531,26 @@ class TSMWrapper(ABC):
 
         return best_params, best_score
 
-    def predict(self, x: np.ndarray, y: np.ndarray):
+    def predict(self, x: np.ndarray):
+        """
+        Predict for given data via the internal model
+        :param x: X used for prediction
+        :return: predictions
+        """
+        self._model.eval()
+        dataset: TimeSeriesDataset = self._make_ts_dataset(x, np.zeros(x.shape[0]))
+        loader: DataLoader = DataLoader(dataset, batch_size=64, shuffle=False)
+
+        predictions = np.zeros((0, self._pred_len), dtype=np.float32)
+
+        with torch.no_grad():
+            for features, labels in loader:
+                preds, _ = self._predict_strategy(features, labels)
+                predictions = np.vstack((predictions, preds))
+
+        return self._std_denormalize(predictions, 'y')
+
+    def predict_for_comparison(self, x: np.ndarray, y: np.ndarray):
         """
         Predict for given data via the internal model
         :param x: X used for prediction
@@ -676,7 +695,8 @@ class TSMWrapper(ABC):
                   f"MAPE: {mape(preds[:, i], true[:, i]) * 100:6.3f}%, "
                   f"MPE: {mpe(preds[:, i], true[:, i]) * 100:6.3f}%")
 
-        TSMWrapper.plot_predictions_per_hour(preds[-to_graph:], true[-to_graph:])
+        if to_graph > 0:
+            TSMWrapper.plot_predictions_per_hour(preds[-to_graph:], true[-to_graph:])
 
     @staticmethod
     def plot_predictions_per_hour(y_pred: np.ndarray, y_true: np.ndarray):
@@ -759,6 +779,8 @@ class TSMWrapper(ABC):
         :return: None
         """
         fig, axs = plt.subplots(nrows=1, ncols=len(train_losses), figsize=(8 * len(train_losses), 7))
+        if len(train_losses) == 1:
+            axs = [axs]  # if we have 1 plot, the returned axs is not a list, but a single object
         for i in range(len(train_losses)):
             axs[i].set_title(f"{i+1} fold")
             axs[i].plot(train_losses[i], label="train_loss", color="g")
