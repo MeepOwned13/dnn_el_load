@@ -117,7 +117,7 @@ def eval_model(params_key: str, seq_len: int, pred_len: int, repeat: int,
         train_time = train_finish - st_time
 
         # prediction and timing
-        y_pred, y_true = wrapper.predict(x_test, y_test)
+        y_pred, y_true = wrapper.predict_for_comparison(x_test, y_test)
 
         pred_finish = timer()
         pred_time = pred_finish - train_finish
